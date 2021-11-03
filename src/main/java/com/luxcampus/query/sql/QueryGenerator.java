@@ -107,12 +107,50 @@ public class QueryGenerator implements Query {
 
     @Override
     public String getById(Class clazz, Object id) {
-        return null;
+        if(id == null) {
+            throw new NullPointerException("Null ID is not supported in getById()");
+        }
+
+        String all = getAll(clazz);
+        Field idField = getPrimaryKey(clazz);
+
+        Column keyFieldAnnotation = idField.getAnnotation(Column.class);
+        String keyFieldName = keyFieldAnnotation.name().isEmpty() ?
+                toSnakeCase(idField.getName()) : keyFieldAnnotation.name();
+
+        return all.substring(0, all.length() - 1) + " WHERE " + keyFieldName + "=" + id + ";";
     }
 
     @Override
     public String delete(Class clazz, Object id) {
-        return null;
+        if(id == null) {
+            throw new NullPointerException("Null ID is not supported in delete()");
+        }
+
+        Table table = (Table) clazz.getAnnotation(Table.class);
+        if(table == null) {
+            throw new IllegalArgumentException("Annotation @Table not found in class " + clazz.getName());
+        }
+        StringBuilder result = new StringBuilder("DELETE FROM ");
+        String className = table.name().isEmpty() ? toSnakeCase(clazz.getSimpleName()) : table.name();
+
+        Field idField = getPrimaryKey(clazz);
+
+        if(idField.getAnnotation(Column.class) == null) {
+            throw new IllegalArgumentException("Annotations @Column not found in class " + clazz.getName());
+        }
+
+        Column keyFieldAnnotation = idField.getAnnotation(Column.class);
+        String keyFieldName = keyFieldAnnotation.name().isEmpty() ?
+                toSnakeCase(idField.getName()) : keyFieldAnnotation.name();
+
+        result.append(className);
+        result.append(" WHERE ");
+        result.append(keyFieldName);
+        result.append("=");
+        result.append(id);
+        result.append(";");
+        return result.toString();
     }
 
     String toSnakeCase(String name) {
@@ -132,5 +170,21 @@ public class QueryGenerator implements Query {
         }
 
         return className.toString();
+    }
+
+    Field getPrimaryKey(Class clazz) {
+        Field idField = null;
+        for (Field declaredField : clazz.getDeclaredFields()) {
+            PrimaryKey primaryKey = declaredField.getAnnotation(PrimaryKey.class);
+            if(primaryKey != null) {
+                idField = declaredField;
+            }
+        }
+
+        if(idField == null) {
+            throw new IllegalArgumentException("Missed @PrimaryKey annotation in " + clazz.getName());
+        }
+
+        return idField;
     }
 }

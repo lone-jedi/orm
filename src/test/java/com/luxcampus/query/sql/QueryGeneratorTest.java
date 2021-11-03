@@ -180,7 +180,7 @@ public class QueryGeneratorTest {
     @Test
     public void testDeleteWithColumnAndAnnotationsName() {
         String expected = "DELETE FROM Car WHERE id=2;";
-        assertEquals(expected, queryGenerator.delete(Car.class, 11));
+        assertEquals(expected, queryGenerator.delete(Car.class, 2));
     }
 
     @Test
