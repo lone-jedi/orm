@@ -201,7 +201,8 @@ public class QueryGeneratorTest {
         try {
             queryGenerator.delete(WithoutColumn.class, 11);
         } catch(IllegalArgumentException exception) {
-            assertEquals("Annotations @Column not found in class com.luxcampus.query.sql.WithoutColumn", exception.getMessage());
+            assertEquals("Annotations @Column not found in class com.luxcampus.query.sql.WithoutColumn at field 'id'",
+                    exception.getMessage());
         }
     }
 

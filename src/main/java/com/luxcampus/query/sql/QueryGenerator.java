@@ -102,7 +102,62 @@ public class QueryGenerator implements Query {
 
     @Override
     public String update(Object value) {
-        return null;
+        Class clazz = value.getClass();
+
+        Table tableAnnotation = (Table) clazz.getAnnotation(Table.class);
+        if(tableAnnotation == null) {
+            throw new IllegalArgumentException("Annotation @Table not found in class "
+                    + clazz.getName());
+        }
+
+        String tableName = tableAnnotation.name().isEmpty() ?
+                toSnakeCase(clazz.getSimpleName()) : tableAnnotation.name();
+
+        StringBuilder stringBuilder = new StringBuilder("UPDATE ");
+        stringBuilder.append(tableName);
+        stringBuilder.append(" SET ");
+
+        StringJoiner stringJoiner = new StringJoiner(", ");
+
+        for (Field declaredField : clazz.getDeclaredFields()) {
+            Column columnAnnotation = declaredField.getAnnotation(Column.class);
+
+            if(columnAnnotation != null
+                    && declaredField.getAnnotation(AutoIncrement.class) == null
+                    && declaredField.getAnnotation(PrimaryKey.class) == null) {
+                declaredField.setAccessible(true);
+
+                String fieldName = getColumnName(declaredField);
+                StringBuilder result = new StringBuilder(fieldName);
+                result.append("=");
+
+                try {
+                    result.append(getValue(declaredField, value));
+                    stringJoiner.add(result);
+                } catch (IllegalAccessException exception) {
+                    exception.printStackTrace();
+                }
+            }
+        }
+
+        if(stringJoiner.length() == 0) {
+            throw new IllegalArgumentException("Annotations @Column not found in class " + clazz.getName());
+        }
+
+        Field idField = getPrimaryKey(clazz);
+        String keyFieldName = getColumnName(idField);
+
+        stringBuilder.append(stringJoiner);
+        stringBuilder.append(" WHERE ");
+        stringBuilder.append(keyFieldName);
+        stringBuilder.append("=");
+        try {
+            stringBuilder.append(getValue(idField, value));
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        stringBuilder.append(";");
+        return stringBuilder.toString();
     }
 
     @Override
@@ -135,14 +190,7 @@ public class QueryGenerator implements Query {
         String className = table.name().isEmpty() ? toSnakeCase(clazz.getSimpleName()) : table.name();
 
         Field idField = getPrimaryKey(clazz);
-
-        if(idField.getAnnotation(Column.class) == null) {
-            throw new IllegalArgumentException("Annotations @Column not found in class " + clazz.getName());
-        }
-
-        Column keyFieldAnnotation = idField.getAnnotation(Column.class);
-        String keyFieldName = keyFieldAnnotation.name().isEmpty() ?
-                toSnakeCase(idField.getName()) : keyFieldAnnotation.name();
+        String keyFieldName = getColumnName(idField);
 
         result.append(className);
         result.append(" WHERE ");
@@ -175,8 +223,12 @@ public class QueryGenerator implements Query {
     Field getPrimaryKey(Class clazz) {
         Field idField = null;
         for (Field declaredField : clazz.getDeclaredFields()) {
+            declaredField.setAccessible(true);
             PrimaryKey primaryKey = declaredField.getAnnotation(PrimaryKey.class);
             if(primaryKey != null) {
+                if(idField != null) {
+                    throw new IllegalStateException("@PrimaryKey annotation can`t use twice in " + clazz.getName());
+                }
                 idField = declaredField;
             }
         }
@@ -185,6 +237,33 @@ public class QueryGenerator implements Query {
             throw new IllegalArgumentException("Missed @PrimaryKey annotation in " + clazz.getName());
         }
 
+        if(idField.getAnnotation(Column.class) == null) {
+            throw new IllegalArgumentException("Annotations @Column not found in class "
+                    + clazz.getName() + " at field '" + idField.getName() + "'");
+        }
+
         return idField;
+    }
+
+    String getColumnName(Field field) {
+        Column keyFieldAnnotation = field.getAnnotation(Column.class);
+        String keyFieldName = keyFieldAnnotation.name().isEmpty() ?
+                toSnakeCase(field.getName()) : keyFieldAnnotation.name();
+
+        return keyFieldName;
+    }
+
+    String getValue(Field field, Object value) throws IllegalAccessException {
+        StringBuilder result = new StringBuilder();
+        field.setAccessible(true);
+        Object fieldValue = field.get(value);
+        if(field.getType().isPrimitive()) {
+            result.append(fieldValue.toString());
+        } else {
+            result.append("'");
+            result.append(fieldValue);
+            result.append("'");
+        }
+        return result.toString();
     }
 }
