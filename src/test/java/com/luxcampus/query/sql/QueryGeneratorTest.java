@@ -48,24 +48,24 @@ public class QueryGeneratorTest {
     }
 
     @Test
-    public void testInsertWithAutoIncrement() {
+    public void testInsertWithAutoIncrement() throws IllegalAccessException {
         Person person = new Person(2, "Alex", 20, false, Gender.Male);
-        String expected = "INSERT person(name, age, gender) VALUES('Alex', 20, 'Male');";
+        String expected = "INSERT INTO person(name, age, gender) VALUES('Alex', 20, 'Male');";
 
         assertEquals(expected, queryGenerator.insert(person));
     }
 
     @DisplayName("Test insert() without @AutoIncrement and with @Column and @Table names")
     @Test
-    public void testInsertWithoutAutoIncrementAndWithColumnAndTableAnnotationsName() {
+    public void testInsertWithoutAutoIncrementAndWithColumnAndTableAnnotationsName() throws IllegalAccessException {
         Car car = new Car(3, "Ferrari", 8);
-        String expected = "INSERT Car(id, car_name, car_age) VALUES(1, 'Ferrari', 8);";
+        String expected = "INSERT INTO Car(id, car_name, car_age) VALUES(3, 'Ferrari', 8);";
 
         assertEquals(expected, queryGenerator.insert(car));
     }
 
     @Test
-    public void testInsertWithoutTableAnnotation() {
+    public void testInsertWithoutTableAnnotation() throws IllegalAccessException {
         Empty empty = new Empty();
         Assertions.assertThrows(IllegalArgumentException.class, () ->
                 queryGenerator.insert(empty));
@@ -77,7 +77,7 @@ public class QueryGeneratorTest {
     }
 
     @Test
-    public void testInsertWithoutColumnAnnotation() {
+    public void testInsertWithoutColumnAnnotation() throws IllegalAccessException{
         WithoutColumn withoutColumn = new WithoutColumn();
         Assertions.assertThrows(IllegalArgumentException.class, () ->
                 queryGenerator.insert(withoutColumn));
@@ -236,5 +236,10 @@ public class QueryGeneratorTest {
         } catch(IllegalArgumentException exception) {
             assertEquals("Missed @PrimaryKey annotation in com.luxcampus.query.sql.Phone", exception.getMessage());
         }
+    }
+    @Test
+    public void testToSnakeCase() {
+        assertEquals("string_builder", queryGenerator.toSnakeCase("StringBuilder"));
+        assertEquals("illegal_argument_exception", queryGenerator.toSnakeCase("IllegalArgumentException"));
     }
 }
